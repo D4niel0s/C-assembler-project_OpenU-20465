@@ -8,7 +8,7 @@ typedef struct LabelNode *labelPtr;
 typedef struct LabelNode{
     char name[MAX_LABEL_NAME]; /*label name*/
     unsigned int address; /*label definition address*/
-    instruction labelInst; /*type of label instruction (enum defined at definitions.h)*/
+	boolean dataFlag;
 }label;
 
 /*Definition of a macro node struct*/
@@ -21,7 +21,7 @@ typedef struct MacroNode{
 /** Represents a single data word. */
 typedef struct data_word {
 	/* The data content itself (a method for putting data into these field is defined) */
-	unsigned long data;
+	unsigned int data;
 } data_word;
 
 typedef struct code_word {
@@ -51,6 +51,11 @@ typedef struct codeImage{
 	char labName[MAX_LABEL_NAME];
 }codeImg;
 
+typedef struct dataImage{
+	int lineNum;
+	int content;
+}dataImg;
+
 typedef struct externNode{
 	char name[MAX_LABEL_NAME];
 }extNode;
@@ -58,12 +63,5 @@ typedef struct externNode{
 typedef struct entryNode{
 	char name[MAX_LABEL_NAME];
 }entNode;
-
-
-
-typedef struct inst_lookup {
-	instruction name;
-	char *value;
-}inst_lookup_item;
 
 #endif

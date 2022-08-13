@@ -3,7 +3,7 @@
 
 #include "lib_include.h"
 
-boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],type dataImage[] ,extNode externList[], entNode entryList[]);
+boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg dataImage[] ,extNode externList[], entNode entryList[]);
 int isLabelDef(char *);
 char *rmColon(char *);
 boolean isalnumStr(char *);
@@ -12,14 +12,18 @@ boolean isReserved(char *);
 opcode getCommandNum(char *);
 reg getRegNum(char *);
 instruction getInstType(char *);
-boolean isDefinedLabel(char *p, label *list[]);
-int getLabelIndex(char *, label *[]);
+boolean isDefinedLabel(char *p, label list[]);
 int getOperandNum(opcode );
 boolean isNumber(char *);
 int getAdressingType(char *);
 boolean checkAddrWithOpcode(opcode , addressing_type, addressing_type);
 boolean writeToCodeImage(opcode,char *,char *,addressing_type ,addressing_type, codeImg [], int *);
 boolean CodeToWords(char *, codeImg[], int *);
+boolean dataToWords(char *line, dataImg dataImage[], int *DC);
+boolean translateStruct(char *line, dataImg dataImage[],int *DC);
+boolean translateString(char *line, dataImg dataImage[], int *DC);
+boolean translateData(char *input, dataImg dataImage[], int *DC);
+boolean isLegalNumberWithSpaces(char *check);
 
 static char *commandArray[16] = {
 	"mov",

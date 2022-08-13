@@ -3,7 +3,20 @@
 
 #include "first_pass.h"
 
-boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],type dataImage[] ,extNode externList[], entNode entryList[]){
+int main(){    
+    dataImg dataImage[100] = {{0,0}};
+    int DC = 0;
+    int i;
+    char *line = ".string \" pickaxe\"";
+    dataToWords(line, dataImage, &DC);
+
+    printf("DC: %d\n",DC);
+    for(i=0;i<12;i++){
+        printf("%d\n",dataImage[i].content);
+    }
+}
+
+boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg dataImage[] ,extNode externList[], entNode entryList[]){
 
     char buf[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '};
@@ -95,6 +108,7 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],type data
                     if(labelDef){
                         strcpy(labelTab[labelCounter].name,currentLabName); /*initializing name field of label*/
                         labelTab[labelCounter].address == DC;
+                        labelTab[labelCounter].dataFlag == true; /*is a data label, data flag is true*/
                         labelCounter++;
                     }
                     dataToWords(buf, dataImage, &DC);
@@ -104,6 +118,7 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],type data
                 if(labelDef){
                     strcpy(labelTab[labelCounter].name,currentLabName); /*initializing name field of label*/
                     labelTab[labelCounter].address == IC + 100; /*setting address of label to 100 + instructioons so far (according to maman's instructions)*/
+                    labelTab[labelCounter].dataFlag == false; /*not a data label, data flag is false*/
                     labelCounter++;
                 }
                 CodeToWords(buf, codeImage, &IC); /*translate buffer to code into code image*/
@@ -124,28 +139,11 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],type data
 boolean isDefinedLabel(char *p, label list[]){
     int i;
     for(i=0;i<100;i++){
-        if(list[i] == NULL){ /*the label list is filled linearly (in order) so the first NULL pointer there means we passed all labels*/
-            return false;
-        }
         if(strcmp(list[i].name, p) == 0){
             return true;
         }
     }
     return false;
-}
-
-/*for a goven string, returns the index of the label corresponding to this name, if not found, returns -1*/
-int getLabelIndex(char *p, label *list[]){
-    int i;
-    for(i=0;i<100;i++){
-        if(list[i] == NULL){
-            return -1; /*iterated through the whole list and not found*/
-        }
-        if(strcmp(list[i]->name,p) == 0){
-            return i;
-        }
-    }
-    return -1; /*iterated through the whole list and not found*/
 }
 
 /*returns if a given string represents a legal label declaration*/
@@ -380,14 +378,9 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
     boolean doubleRegFlag = false; /*used in case we have two register operands*/
     int i = 0; /*used for accessing the i element of our code words array*/
     unsigned int ans = 0;
+
     /*output is maximum of 5 binary words, so we declare and initialize an array of 5 code_word elements*/
-    code_word words[5] = {
-        [0] = {0,0,0,0,0,0,0,{' '}},
-        [1] = {0,0,0,0,0,0,0,{' '}},
-        [2] = {0,0,0,0,0,0,0,{' '}},
-        [3] = {0,0,0,0,0,0,0,{' '}},
-        [4] = {0,0,0,0,0,0,0,{' '}},
-    };
+    code_word words[5] = {0,0,0,0,0,0,0,"\0"};
 
     strcpy(Cop1,op1);
     strcpy(Cop2,op2);
@@ -738,6 +731,183 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
         return false;
     }
 
+}
+
+boolean translateData(char *input, dataImg dataImage[], int *DC){
+    char cpy[MAX_LINE] = {' '};
+    char *token;
+
+    strcpy(cpy,input);
+
+    /*no double commas*/
+    if(strstr(cpy,",,") != NULL){
+        printf("multiple commas between opernads!");
+        return false;
+    }
+    /*there are commas in the input*/
+    if(strchr(cpy,',') == NULL){
+        printf("no comma between operands!");
+        return false;
+    }
+    /*no comma at start*/
+    if(cpy[0] == ','){
+        printf("number cannot contain comma!");
+        return false;
+    }
+    /*no comma at end*/
+    if(cpy[strlen(cpy)-1] == ','){
+        printf("number cannot contain comma!");
+        return false;
+    }
+
+    token = strtok(cpy, " ,");
+    while(token != NULL){ /*foe evry token between commas, we check if it's a legal number (that may include spaces)*/
+        if(isNumber(token)){
+            if(atoi(token) > 1024){ /*we can store up to 1024 in 10 bits*/
+                printf("number is too big to be stored!");
+                return false;
+            }else{
+            dataImage[(*DC)].content = atoi(token); /*number ok, we store it*/
+            }
+        }else{
+            printf("illegal number in data instruction!");
+            return false;
+        }
+        token = strtok(NULL, " ,");
+        (*DC)++;
+    }
+    return true;
+}
+
+boolean translateString(char *line, dataImg dataImage[], int *DC){
+    char cpy[MAX_LINE] = {' '};
+    int i = 1;
+    boolean endOfString = false;
+
+    strcpy(cpy,line);
+
+    if(cpy[0] != '"'){ /*a string has to start with a quotation mark*/
+        printf("a string must start with a quotation mark!");
+        return false;
+    }
+
+    /*for each charracter in the string, we check if it closes the string, or if it's another character to add*/
+    /*if it closes the string, we should add a "NULL terminator" in our translation (the value zero), and stop the loop*/
+    for(i=1;i<strlen(cpy);i++){
+        if(cpy[i] == '"'){
+            endOfString = true;
+            dataImage[(*DC)].content = 0;
+            i++;
+            (*DC)++;
+            break;
+        }else{
+            dataImage[(*DC)].content = (int)cpy[i];
+            (*DC)++;
+        }
+    }
+
+    /*if we went thourgh the entire string, and did not close out string, that's an error*/
+    if(!endOfString){
+        printf("a string must end with a quotation mark");
+        return false;
+    }
+
+    for(;i<strlen(cpy);i++){
+        if(! isspace(cpy[i]) ){
+            printf("too many arguments for .string instruction");
+            return false;
+        }
+    }
+}
+
+boolean translateStruct(char *line, dataImg dataImage[],int *DC){
+    char cpy[MAX_LINE] = {' '};
+    char *token;
+
+    strcpy(cpy,line);
+
+    /*no double commas*/
+    if(strstr(cpy,",,") != NULL){
+        printf("multiple commas between opernads!");
+        return false;
+    }
+    /*there are commas in the input*/
+    if(strchr(cpy,',') == NULL){
+        printf("no comma between operands!");
+        return false;
+    }
+    /*no comma at start*/
+    if(cpy[0] == ','){
+        printf("number cannot contain comma!");
+        return false;
+    }
+    /*no comma at end*/
+    if(cpy[strlen(cpy)-1] == ','){
+        printf("number cannot contain comma!");
+        return false;
+    }
+
+    token = strtok(cpy," ,");
+    if(token == NULL){
+        printf("no arguments for struct instruction");
+        return false;
+    }
+    if(isNumber(token)){
+        dataImage[(*DC)].content = atoi(token);
+        (*DC)++;
+    }else{
+        printf("number in struct instruction is illegal");
+        return false;
+    }
+    
+    token = strtok(NULL,"\0");
+    strcpy(token, skipSpace(token));
+    if(*token == ','){
+        token++;
+        strcpy(token, skipSpace(token));
+    }
+
+    translateString(token, dataImage, DC);
+}
+
+boolean dataToWords(char *line, dataImg dataImage[], int *DC){
+    char cpy[MAX_LINE] = {' '};
+    char word[MAX_LINE] = {' '};
+    char *token;
+
+    instruction currentInst;
+    int numCounter = 0;
+
+    int internalImage[MAX_LINE] = {0};
+
+    strcpy(cpy,line);
+    strcpy(word,get1stW(cpy));
+
+    currentInst = getInstType(word); /*getting instruction type*/
+
+    /*skiping after the instruction, to the start of the value*/
+    strcpy(word, skipWord(cpy));
+    strcpy(word, skipSpace(word));
+    
+    /*according to the type of data, we invoke the according function*/
+    switch(currentInst){
+        case DATA_INST:
+            if(translateData(word, dataImage, DC)){
+                return true;
+            }
+            break;
+        case STRING_INST:
+            if(translateString(word, dataImage, DC)){
+                return true;
+            }
+            break;
+        case STRUCT_INST:
+            if(translateStruct(word, dataImage, DC)){
+                return true;
+            }
+            break;
+    }
+    return false;
 }
 
 #endif

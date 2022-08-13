@@ -22,9 +22,6 @@
 #define UNASSIGNED -1
 
 
-
-/*definitions of sizes (struct is in structs.h)*/
-
 /*size of opcode field in code_word (in bits)*/
 #define SIZEOF_OPCODE 4
 
@@ -45,9 +42,6 @@
 
 /*external translation means value 1 in A,R,E field of code_word*/
 #define E_FLAG 1
-
-/*end of sizes definition*/
-
 
 
 /*definition of boolean vriable*/
