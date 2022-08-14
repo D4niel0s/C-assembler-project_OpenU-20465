@@ -31,6 +31,7 @@ char *skipWord(char *p){
     return p;
 }
 
+
 /*a function that returns the 1st word of a string (also a string)*/
 char *get1stW(char *p){
     char q[MAX_LINE] = {' '};
