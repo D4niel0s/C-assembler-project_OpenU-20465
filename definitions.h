@@ -18,6 +18,9 @@
 /*a line that starts with ";" is a comment line and should be ignored*/
 #define COMMENT_CHAR ';'
 
+/*according to maman's instructions, our first address is 100*/
+#define FIRST_ADDRESS 100
+
 /*a value for when a field is yet to be assigned*/
 #define UNASSIGNED -1
 

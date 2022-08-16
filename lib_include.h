@@ -6,7 +6,5 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "definitions.h"
-#include "structs.h"
-#include "utils.c"
 
 #endif

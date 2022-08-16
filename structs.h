@@ -4,15 +4,13 @@
 #include "definitions.h"
 
 /*Definition of a label node struct*/
-typedef struct LabelNode *labelPtr;
 typedef struct LabelNode{
     char name[MAX_LABEL_NAME]; /*label name*/
-    unsigned int address; /*label definition address*/
+    unsigned address; /*label definition address*/
 	boolean dataFlag;
 }label;
 
 /*Definition of a macro node struct*/
-typedef struct MacroNode *macPtr;
 typedef struct MacroNode{
     char name[MAX_LABEL_NAME]; /*macro name*/
     char data[MAX_LINE * 20]; /*macro content (capped to 20 lines)*/
@@ -58,6 +56,8 @@ typedef struct dataImage{
 
 typedef struct externNode{
 	char name[MAX_LABEL_NAME];
+	unsigned useArr[MEM_CAP];
+	int useCount;
 }extNode;
 
 typedef struct entryNode{

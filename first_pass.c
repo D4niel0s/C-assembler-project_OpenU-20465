@@ -60,6 +60,7 @@ int main(){
         printf("name is: %s\n", entList[i].name);
     }
     printf("*end of entries*\n\n");
+    return 1;
 }
 
 /*main logic of first pass:
@@ -71,7 +72,6 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
     /*string to store and parse the string input*/
     char buf[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '};
-    char cpy[MAX_LINE] = {' '};
     char currentLabName[MAX_LABEL_NAME+1] = {' '};
     char *token;
 
@@ -172,6 +172,8 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                             strcpy(externList[externCounter].name, currentLabName); /*store label name inside of extern list*/
                             externCounter++;
                             break;
+                        default:
+                            break;
                     }
                 }else{ /*the instruction is of type .data, .string or .struct*/
                     if(labelDef){
@@ -189,7 +191,7 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
             }else if(currentOpcode != NONE_OP){
                 if(labelDef){
                     strcpy(labelTab[labelCounter].name,currentLabName); /*initializing name field of label*/
-                    labelTab[labelCounter].address = (*IC) + 100; /*setting address of label to 100 + instructioons so far (according to maman's instructions)*/
+                    labelTab[labelCounter].address = (*IC) + FIRST_ADDRESS; /*setting address of label to 100 + instructioons so far (according to maman's instructions)*/
                     labelTab[labelCounter].dataFlag = false; /*not a data label, data flag is false*/
                     labelCounter++;
                 }
@@ -210,17 +212,6 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
         }
     }
     return true;
-}
-
-/*checks for a string p if a label with this name exists already*/
-boolean isDefinedLabel(char *p, label list[]){
-    int i;
-    for(i=0;i<MEM_CAP;i++){ /*checks for every label, if it matches the input*/
-        if(strcmp(list[i].name, p) == 0){
-            return true;
-        }
-    }
-    return false;
 }
 
 /*returns if a given string represents a legal label declaration*/
@@ -261,48 +252,6 @@ boolean isLegalLabel(char *labCheck){
         return true;
     }
     return false;
-}
-
-/*checks for a given string, if it represents a reserved word (eg: command,register, etc.)*/
-boolean isReserved(char *p){
-    /*reserved words include: commands, registers, and instructions*/
-    if(getCommandNum(p) == NONE_OP && getRegNum(p) == NONE_REG && getInstType(p) == NONE_INST){
-        return false;
-    }
-    return true;
-}
-
-/*gets the command num (opcode) of a given string, if not found, returns NONE_OP*/
-opcode getCommandNum(char *p){
-    int i;
-    for(i=0;i<TOTAL_COMMAND_NUM;i++){ /*gets opcode from the command array (defined in first_pass.h)*/
-        if(strcmp(commandArray[i],p) == 0){
-            return i;
-        }
-    }
-    return NONE_OP;
-}
-
-/*gets the register number of a given string, if not found, returns NONE_REG*/
-reg getRegNum(char *p){
-    int i;
-    for(i=0;i<TOTAL_REGISTER_NUM;i++){ /*gets register from the registers array (defined in first_pass.h)*/
-        if(strcmp(registerArray[i],p) == 0){
-            return i;
-        }
-    }
-    return NONE_REG;
-}
-
-/*gets the instruction type of a given string (eg: .data, .string etc.), if not found, returns NONE_INST*/
-instruction getInstType(char *p){
-    int i;
-    for(i=0;i<TOTAL_INSTRUCTION_NUM;i++){ /*gets instruction from the instructions array (defined in first_pass.h)*/
-        if(strcmp(instArray[i],p) == 0){
-            return i;
-        }
-    }
-    return NONE_INST;
 }
 
 /*gets an operation and returns the amount of operands the operation takes, if not a legal operation, returns -1*/
@@ -395,8 +344,6 @@ int getAdressingType(char *operand){
 
 /*checks if addressing types are compatible with a certain opcode (according to maman's instructions)*/
 boolean checkAddrWithOpcode(opcode operation, addressing_type addr1, addressing_type addr2){
-    int operandNum = getOperandNum(operation);
-
     switch(operation){
         /*two operand group*/
         case MOV_OP:
@@ -464,7 +411,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
     unsigned int ans = 0;
 
     /*output is maximum of 5 binary words, so we declare and initialize an array of 5 code_word elements*/
-    code_word words[5] = {0,0,0,0,0,0,0,"\0"};
+    code_word words[5] = { {0,0,0,0,0,0,0,"\0"} };
 
     strcpy(Cop1,op1);
     strcpy(Cop2,op2);
@@ -748,7 +695,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
                 op1[i] = '\0';
             }
             token = strtok(NULL," ");
-            if(skipSpace(token) == '\n' || skipSpace(token) == '\0'){
+            if(*(skipSpace(token)) == '\n' || *(skipSpace(token)) == '\0'){
                 printf("error in line %d: not enough operands\n",lineNumber);
                 return false;
             }
@@ -830,7 +777,6 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         printf("error in line %d: addressing types not compatible with function\n",lineNumber);
         return false;
     }
-
 }
 
 /*writes data instruction operands to data image*/
@@ -920,6 +866,7 @@ boolean translateString(char *line, dataImg dataImage[], int *DC, int lineNumber
             return false;
         }
     }
+    return true;
 }
 
 /*writes struct operands to data image*/
@@ -973,16 +920,16 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC, int lineNumber)
     }
 
     translateString(token, dataImage, DC, lineNumber);
+
+    return true;
 }
 
 /*gets a string representing a data instruction (.data/.string/.struct) ,and translates it to binary code inside of the data Image as requested in maman's instructions */
 boolean dataToWords(char *line, dataImg dataImage[], int *DC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '};
-    char *token;
 
     instruction currentInst;
-    int numCounter = 0;
 
     strcpy(cpy,line);
     strcpy(word,get1stW(cpy));
@@ -1010,6 +957,8 @@ boolean dataToWords(char *line, dataImg dataImage[], int *DC, int lineNumber){
                 return true;
             }
             break;
+        default:
+            return false;
     }
     return false;
 }

@@ -3,84 +3,82 @@
 
 #include "pre_pro.h"
 
+/*we get a line with a bigger size than max size, to check if we dont have too long lines*/
+#define LINE_CHECK_LEN 100
+
 int main(){
-    FILE *input = fopen("infile.txt","r+");
-    FILE *output = fopen("outfile.txt","w+");
-    pre_pro(input,output);
-    fclose(input);
-    fclose(output);
     return 1;
 }
 
 boolean pre_pro(FILE *in,FILE *out){
 
-    macro *macList[100] = { NULL };
+    macro *macList[MEM_CAP] = { NULL };
 
+    int lineNum = 0;
     int macroCounter = 0;
     boolean macFlag = false;
 
-    char *buf = (char *)(malloc(100));
+    char *buf = (char *)(malloc(LINE_CHECK_LEN));
     char *word = (char *)(malloc(MAX_LINE));
-    printf("CREATED VARS\n");
-    while( fgets(buf,100,in) != NULL){
-        printf("GOT LINE, %s\n",buf);
+
+    while(fgets(buf,LINE_CHECK_LEN,in) != NULL){
+        lineNum++;
         if(strlen(buf) <= MAX_LINE){
-            printf("LINE OK\n");
             if(!ignore(buf)){
-                printf("LINE NOT IGNORED\n");
-                printf("word is IM HERE, %s\n",word);
-                printf("getting 1st word\n");
                 strcpy(word, get1stW(buf));
-                printf("GOT 1st WORD, %s\n",word);
-                if( isMacro(macList,word,macroCounter) ){
-                    printf("IS A MACRO, %s\n",word);
+                
+                if(isMacro(macList,word,macroCounter) ){
                     replaceMacro(out, macList, word);
-                    printf("REPLACED!\n");
                 }else if(strcmp(word,"macro") == 0){
-                    strcpy(word, getMacName(buf));
-                    printf("NEW MACRO DEFINITION!, %s\n", word);
-                    macroCounter++;
-                    macList[macroCounter-1] = (macro *)malloc(sizeof(macro));
-                    strcpy(macList[macroCounter-1] -> name , word);
-                    printf("ADDED NEW MACRO TO LIST! name's, %s\n",macList[macroCounter-1]->name);
-                    macFlag = true;
-                    while(macFlag){
-                        fgets(buf,100,in);
-                        printf("got another line!, %s\n",buf);
-                        if(strlen(buf) > MAX_LINE){
-                            printf("%s","*****Error in pre-proccessing: line is too long*****");
-                            freeList((macro ***)&macList,macroCounter);
-                            free(buf);
-                            free(word);
-                            return false;
+                    if(!isReserved(word)){
+                        strcpy(word, getMacName(buf));
+                        macroCounter++;
+                        macList[macroCounter-1] = (macro *)malloc(sizeof(macro));
+                        strcpy(macList[macroCounter-1] -> name , word);
+
+                        macFlag = true;
+                        while(macFlag){
+                            fgets(buf,LINE_CHECK_LEN,in);
+
+                            if(strlen(buf) > MAX_LINE){
+                                printf("error in line %d: line is too long\n",lineNum);
+                                freeList((macro ***)&macList,macroCounter);
+                                free(buf);
+                                free(word);
+                                return false;
+                            }
+
+                            if(ignore(buf)){
+                                fprintf(out,"%s",buf);
+                                continue;
+                            }
+                            strcpy(word,get1stW(buf));
+
+                            if(strcmp(word,"endmacro") == 0){
+                                macFlag = false;
+                            }else{
+                                strcat(macList[macroCounter-1]->data, skipSpace(buf));
+                            }
                         }
-                        if(ignore(buf)){
-                            fprintf(out,"%s",buf);
-                            continue;
-                        }
-                        printf("NOT IGNORESSSSSS\n");
-                        strcpy(word,get1stW(buf));
-                        printf("1st WORD IS, %s\n",word);
-                        if(strcmp(word,"endmacro") == 0){
-                            macFlag = false;
-                            printf("macflag - false\n");
-                        }else{
-                            strcat(macList[macroCounter-1]->data, skipSpace(buf));
-                            printf("added content\n");
-                        }
+                    }
+                    else{
+                        printf("error in line %d: macro name cannot be a reserved word\n", lineNum);
+                        freeList((macro ***)&macList,macroCounter);
+                        free(buf);
+                        free(word);
+                        return false;
                     }
 
                 }else{
-                    printf("IN ELSE\n");
                     fprintf(out,"%s",buf);
-                    printf("printed\n");
                 }
+
             }else{
-                if(!isComment(buf))
                 fprintf(out,"%s",buf);
             }
+
         }else{
-            printf("%s","*****Error in pre-proccessing: line is too long*****");
+            printf("error in line %d: line is too long\n",lineNum);
             freeList((macro ***)&macList,macroCounter);
             free(buf);
             free(word);
@@ -100,21 +98,14 @@ char *getMacName(char *line){
     return strtok(NULL, " \n\0");
 }
 
-boolean isComment(char *buf){
-    return *buf == ';';
-}
-
 /*Function to check wether a macro already exists with input name*/
 boolean isMacro(macro *list[],char *nameCheck,int len){
     int i;
     for(i=0;i<len;i++){
-        printf("inside of ismacro, name is:%ss\n",list[i]->name);
-        printf("inside of ismacro, name to compare is:%ss\n",nameCheck);
         if(strcmp((list)[i]->name, nameCheck) == 0){
             return true;
         }
     }
-    printf("ISAFTER LOOP\n");
     return false;
 }
 
