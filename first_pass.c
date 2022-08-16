@@ -3,39 +3,49 @@
 
 #include "first_pass.h"
 
-int main(){    
+int main(){
     FILE *in = fopen("infile.txt","r+");
     label labelTab[100] = { {"\0",0,false} };
     codeImg codeImage[256] = { {0,0,"\0"} };
     dataImg dataImage[256] = { {0,0} };
     extNode extList[100] = { {"\0"} };
     entNode entList[100] = { {"\0"} };
-    int i;
+    int i, IC = 0, DC = 0;
 
-    if(!first_pass(in, labelTab, codeImage, dataImage, extList, entList)){
-        printf("ERROR");
+    if(!first_pass(in, labelTab, codeImage, dataImage, extList, entList,&IC,&DC)){
+        printf("ERROR\n");
         return 0;
     }
 
+    printf("IC: %d\n",IC);
+    printf("DC: %d\n",DC);
+
     printf("label tab:\n");
-    for(i=0;i<7;i++){
-        printf("name is: %s\n", labelTab[i].name);
+    for(i=0;i<10;i++){
+        if(labelTab[i].dataFlag){
+            labelTab[i].address += (IC+100);
+        }
+        printf("name is: %s\t", labelTab[i].name);
+        printf("address: %d\t", labelTab[i].address);
+        printf("isData: %d\n", labelTab[i].dataFlag);
     }
     printf("*end of label*\n\n");
 
     printf("codeImage:\n");
     for(i=0;i<30;i++){
         if(codeImage[i].labName[0] != '\0'){
-            printf("lab is: %s\n", codeImage[i].labName);
+            printf("lab is: %s\t", codeImage[i].labName);
         }else{
-        printf("content is: %d\n", codeImage[i].content);
+        printf("content is: %d\t", codeImage[i].content);
         }
+        printf("line: %d\n", codeImage[i].lineNum);
     }
     printf("*end of code image*\n\n");
 
     printf("dataImage:\n");
     for(i=0;i<30;i++){
-        printf("content is: %d\n", dataImage[i].content);
+        printf("content is: %d\t", dataImage[i].content);
+        printf("line: %d\n", dataImage[i].lineNum);
     }
     printf("*end of data image*\n\n");
     
@@ -52,43 +62,52 @@ int main(){
     printf("*end of entries*\n\n");
 }
 
-boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg dataImage[] ,extNode externList[], entNode entryList[]){
+/*main logic of first pass:
+* translates every line (that needs to be translated) into code/data image,
+* stores lables to label table, 
+* stores extern/entry defined labels to according arrays, 
+* updates IC and DC to correspond with instruction and data count*/
+boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg dataImage[] ,extNode externList[], entNode entryList[], int *IC, int *DC){
+    /*string to store and parse the string input*/
     char buf[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '};
     char cpy[MAX_LINE] = {' '};
     char currentLabName[MAX_LABEL_NAME+1] = {' '};
     char *token;
 
-    boolean labelDef  = false; /*flag for a line with a label definition*/
+    /*flag for a line with a label definition*/
+    boolean labelDef  = false;
 
+    /*counters*/
     int labelCounter = 0;
     int externCounter = 0;
     int entryCounter = 0;
+    int lineCounter = 0;
 
-    int IC = 0; /*instruction counter*/
-    int DC = 0; /*data counter*/
 
+    /*flags to mark current line operation/ instruction*/
     opcode currentOpcode;
     instruction currentInst;
 
     while(fgets(buf,MAX_LINE,infile) != NULL){
+        lineCounter++; /*got a line*/
         if(!ignore(buf)){ /*we translate a line only if it should not be ignored (not blank, not comment)*/
 
-            strcpy(buf,skipSpace(buf));
-            strcpy(word,get1stW(buf));
+            strcpy(buf,skipSpace(buf)); /*skip spaecs at the start of every line*/
+            strcpy(word,get1stW(buf)); /*get first word*/
             
-            if(isLabelDef(word) == 1){ /*return values for isLabelDef listed below, checks if a word is a legal label declaration*/
+            if(isLabelDef(word) == 1){ /*return values for isLabelDef listed below (in function definition), checks if a word is a legal label declaration*/
                 if(!isDefinedLabel(word,labelTab)){ /*check if a label with this name has already been declared somewhere else*/
                     labelDef = true;
                     strcpy(currentLabName, strtok(word,":")); /*if a label is ok, then when we tokenize it with a colon we should get the label name*/
 
                     /*we do not initialize labe's name and don't increment label counter because the label might be ignored due to .extern or .entry instruction*/
                 }else{
-                    printf("********error in first pass, label declared twice: ,%s********",word);
+                    printf("error in line %d: label declared twice - %s\n",lineCounter,word);
                     return false;
                 }
             }else if(isLabelDef(word) == 2){
-                printf("********error in first pass, illegal label name: %s********",word);
+                printf("error in %d: illegal label name - %s\n",lineCounter,word);
                 return false;
             }
             
@@ -96,30 +115,32 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
             LABEL: <value>
             so we need to skip to the start of the value*/
             
-            
+            /*skipping label name in case we got a label*/
             if(labelDef){
                 token = strtok(buf, " ");
                 token = strtok(NULL, "\0");
                 if(token == NULL){
-                    printf("error, emptry string after label");
+                    printf("error in line %d: emptry string after label\n",lineCounter);
                     return false;
                 }
-            }else{
+            }else{ /*if there is no label, the line should stay the same*/
                 token = buf;
             }
             strcpy(word,get1stW(token));
             
+            /*if we got a newline character at the end of input, it may mess up our parsing inside the translation functions, thus we delete it*/
             if(token[strlen(token)-1] == '\n'){
                 token[strlen(token)-1] = '\0';
             }
             
+            /*getting opcode and insturction type of current word (at least one will be none)*/
             currentOpcode = getCommandNum(word);
             currentInst = getInstType(word);
 
             if(currentInst != NONE_INST){
                 if(currentInst == EXTERN_INST || currentInst == ENTRY_INST){ /*we have a .extern or .entry instruction*/
                     if(labelDef){ /*according to the maman's instructions, if a label is defined and inside the label is a .extern or .entry instruction, we ignore the label*/
-                        printf("*WARNING: label definition includes .extern or .entry, label %s ignored*",currentLabName);
+                        printf("warning - line %d: label definition includes .extern or .entry, label %s ignored\n",lineCounter,currentLabName);
                     }
                     /*skip to after the .extern/.entry instruction*/
                     strcpy(token,skipWord(token));
@@ -127,7 +148,7 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
 
                     /*empty line after .extern or .entry call*/
                     if(buf[0] == '\0' || buf[0] == '\n'){
-                        printf("no arguments for .extern or .entry");
+                        printf("error in line %d: no arguments for .extern or .entry\n", lineCounter);
                         return false;
                     }
                     strcpy(word,token); /*copying buf to word to tokenize word without changing buf*/
@@ -135,11 +156,11 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                     token = strtok(NULL," ");
 
                     if(token != NULL){ /*if we have another token after one argument, it's an error*/
-                        printf("too many arguments for .extern/ .entry instruction");
+                        printf("error in line %d: too many arguments for .extern/ .entry instruction\n", lineCounter);
                         return false;
                     }
                     if(!isLegalLabel(currentLabName)){ /*if we get an illegal label name inside the instruction it's an error*/
-                        printf("illegal label name in .extern/ .entry instruction");
+                        printf("error in line %d: illegal label name in .extern/ .entry instruction\n", lineCounter);
                         return false;
                     }
                     switch(currentInst){
@@ -155,12 +176,12 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                 }else{ /*the instruction is of type .data, .string or .struct*/
                     if(labelDef){
                         strcpy(labelTab[labelCounter].name,currentLabName); /*initializing name field of label*/
-                        labelTab[labelCounter].address == DC;
-                        labelTab[labelCounter].dataFlag == true; /*is a data label, data flag is true*/
+                        labelTab[labelCounter].address = (*DC);
+                        labelTab[labelCounter].dataFlag = true; /*is a data label, data flag is true*/
                         labelCounter++;
                     }
-                    if(!dataToWords(token, dataImage, &DC)){ /*translate data into data image array*/
-                        printf("failed to write to data");
+                    if(!dataToWords(token, dataImage, DC, lineCounter)){ /*translate data into data image array*/
+                        printf("error, failed to write line %d to data\n",lineCounter);
                         return false;
                     }
                 }
@@ -168,19 +189,20 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
             }else if(currentOpcode != NONE_OP){
                 if(labelDef){
                     strcpy(labelTab[labelCounter].name,currentLabName); /*initializing name field of label*/
-                    labelTab[labelCounter].address == IC + 100; /*setting address of label to 100 + instructioons so far (according to maman's instructions)*/
-                    labelTab[labelCounter].dataFlag == false; /*not a data label, data flag is false*/
+                    labelTab[labelCounter].address = (*IC) + 100; /*setting address of label to 100 + instructioons so far (according to maman's instructions)*/
+                    labelTab[labelCounter].dataFlag = false; /*not a data label, data flag is false*/
                     labelCounter++;
                 }
-                if(!CodeToWords(token, codeImage, &IC)){ /*translate buffer to code into code image*/
-                    printf("failed to write to code");
+                if(!CodeToWords(token, codeImage, IC, lineCounter)){ /*translate buffer to code into code image*/
+                    printf("error, failed to write line %d to code\n",lineCounter);
                     return false;
                 } 
             }else{
-                printf("********invalid expression: %s********",word);
+                printf("error in line %d: %s in not a valid expression\n",lineCounter,word); /*if the first word of a line is neither an instruction or an operation, it is an error*/
                 return false;
             }
             
+            /*reset variables for next line*/
             labelDef = false;
             strcpy(currentLabName,"\0");
             currentInst = NONE_INST;
@@ -193,7 +215,7 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
 /*checks for a string p if a label with this name exists already*/
 boolean isDefinedLabel(char *p, label list[]){
     int i;
-    for(i=0;i<100;i++){
+    for(i=0;i<MEM_CAP;i++){ /*checks for every label, if it matches the input*/
         if(strcmp(list[i].name, p) == 0){
             return true;
         }
@@ -232,8 +254,9 @@ boolean isalnumStr(char *p){
     return true;
 }
 
-/*checks for a given string, if it fits for a label name (alpha-numeric,starts with a letter, no longer than 30 characters, not reserved)*/
+/*checks for a given string, if it legal for a label name (alpha-numeric,starts with a letter, no longer than 30 characters, not reserved)*/
 boolean isLegalLabel(char *labCheck){
+    /*a label is ok only if it is alpha-numeric, not a reserved word, starts with a letter, ans is no longer thn 30 characters*/
     if(isalpha(labCheck[0]) && !isReserved(labCheck) && isalnumStr(labCheck) && strlen(labCheck)<=MAX_LABEL_NAME){
         return true;
     }
@@ -242,6 +265,7 @@ boolean isLegalLabel(char *labCheck){
 
 /*checks for a given string, if it represents a reserved word (eg: command,register, etc.)*/
 boolean isReserved(char *p){
+    /*reserved words include: commands, registers, and instructions*/
     if(getCommandNum(p) == NONE_OP && getRegNum(p) == NONE_REG && getInstType(p) == NONE_INST){
         return false;
     }
@@ -251,7 +275,7 @@ boolean isReserved(char *p){
 /*gets the command num (opcode) of a given string, if not found, returns NONE_OP*/
 opcode getCommandNum(char *p){
     int i;
-    for(i=0;i<16;i++){
+    for(i=0;i<TOTAL_COMMAND_NUM;i++){ /*gets opcode from the command array (defined in first_pass.h)*/
         if(strcmp(commandArray[i],p) == 0){
             return i;
         }
@@ -262,7 +286,7 @@ opcode getCommandNum(char *p){
 /*gets the register number of a given string, if not found, returns NONE_REG*/
 reg getRegNum(char *p){
     int i;
-    for(i=0;i<8;i++){
+    for(i=0;i<TOTAL_REGISTER_NUM;i++){ /*gets register from the registers array (defined in first_pass.h)*/
         if(strcmp(registerArray[i],p) == 0){
             return i;
         }
@@ -273,7 +297,7 @@ reg getRegNum(char *p){
 /*gets the instruction type of a given string (eg: .data, .string etc.), if not found, returns NONE_INST*/
 instruction getInstType(char *p){
     int i;
-    for(i=0;i<5;i++){
+    for(i=0;i<TOTAL_INSTRUCTION_NUM;i++){ /*gets instruction from the instructions array (defined in first_pass.h)*/
         if(strcmp(instArray[i],p) == 0){
             return i;
         }
@@ -369,6 +393,7 @@ int getAdressingType(char *operand){
     return NONE_ADDR;
 }
 
+/*checks if addressing types are compatible with a certain opcode (according to maman's instructions)*/
 boolean checkAddrWithOpcode(opcode operation, addressing_type addr1, addressing_type addr2){
     int operandNum = getOperandNum(operation);
 
@@ -430,7 +455,7 @@ boolean checkAddrWithOpcode(opcode operation, addressing_type addr1, addressing_
 
 /*writes to code image the translation of a single operation line*/
 /*this function assumes that we got addressing types that match the operation (we run this function in translateCode after validation)*/
-boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1,addressing_type addr2, codeImg image[], int *IC){
+boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1,addressing_type addr2, codeImg image[], int *IC, int lineNumber){
     char Cop1[MAX_LINE] = {' '};
     char Cop2[MAX_LINE] = {' '};
 
@@ -469,6 +494,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
     ans+= words[i].ARE;
 
     image[(*IC)].content = ans;
+    image[(*IC)].lineNum = lineNumber;
     (*IC)++;
     ans = 0;
 
@@ -478,9 +504,9 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
         case IMMEDIATE_ADDR:
             Cop1[0] = ' '; /*replacing hashtag with space*/
             strcpy(Cop1,skipSpace(Cop1)); /*skipping that space to leave us with only the number*/
-            /*we can store a value between -128 and 255 with 8 bits*/
-            if(atoi(Cop1) > 255 || atoi(Cop1) < -128){
-                printf("number is too big!"); /*if we got an illegal value, we exit*/
+            /*we can store a value between -128 and 127 with 8 bits (2's complement)*/
+            if(atoi(Cop1) > 127 || atoi(Cop1) < -128){
+                printf("error in line %d: number is too big!\n",lineNumber); /*if we got an illegal value, we exit*/
                 return false; 
             }
             words[i].immediateNum = (unsigned)atoi(Cop1); /*getting number and storing it inside it's field*/
@@ -490,6 +516,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
             ans <<= SIZEOF_ARE; /*shift to the left by the number of bits that the ARE field takes*/
             ans += words[i].ARE;
             image[(*IC)].content = ans;
+            image[(*IC)].lineNum = lineNumber;
             i++; /*incrementing i to go to next cell*/
             (*IC)++;
             break;
@@ -497,6 +524,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
         /*meaning we got a label name in op1*/
         case DIRECT_ADDR:
             strcpy(image[(*IC)].labName, Cop1);
+            image[(*IC)].lineNum = lineNumber;
             (*IC)++;
             i++; /*incrementing i to go to next cell*/
             break;
@@ -505,6 +533,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
         case STRUCT_ADDR:
             strcpy(words[i].labelName,strtok(Cop1,".")); /*copying label name to the labl name field*/
             strcpy(image[(*IC)].labName, words[i].labelName);
+            image[(*IC)].lineNum = lineNumber;
             i++; /*incrementing i to go to next cell*/
             (*IC)++;
             words[i].immediateNum = strcmp(strtok(NULL," "),"1") == 0? 1 : 2; /*getting field number*/
@@ -514,6 +543,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
             ans <<= SIZEOF_ARE; /*shift to the left by the number of bits that the ARE field takes*/
             ans += words[i].ARE;
             image[(*IC)].content = ans;
+            image[(*IC)].lineNum = lineNumber;
             i++;
             (*IC)++;
             break;
@@ -532,11 +562,13 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
                 ans <<= SIZEOF_ARE; /*shift to the left by the number of bits that the ARE field takes*/
                 ans += words[i].ARE;
                 image[(*IC)].content = ans;
+                image[(*IC)].lineNum = lineNumber;
             }else{
                 ans += words[i].src_register;
                 ans <<= SIZEOF_REGISTER + SIZEOF_ARE; /*shift to the left by the number of bits that the destination register field takes plus the ARE field (since dest register is zero/none)*/
                 ans += words[i].ARE;
                 image[(*IC)].content = ans;
+                image[(*IC)].lineNum = lineNumber;
             }
             (*IC)++;
             i++; /*incrementing i to go to next cell*/
@@ -550,9 +582,9 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
         case IMMEDIATE_ADDR:
             Cop2[0] = ' '; /*replacing hashtag with space*/
             strcpy(Cop2,skipSpace(Cop2)); /*skipping that space to leave us with only the number*/
-            /*we can store a value between -128 and 255 with 8 bits*/
-            if(atoi(Cop2) > 255 || atoi(Cop2) < -128){
-                printf("number is too big!"); /*if we got an illegal value, we exit*/
+            /*we can store a value between -128 and 127 with 8 bits (using 2's complement)*/
+            if(atoi(Cop2) > 127 || atoi(Cop2) < -128){
+                printf("error in line %d: number is too big!\n",lineNumber); /*if we got an illegal value, we exit*/
                 return false; 
             }
             words[i].immediateNum = (unsigned)atoi(Cop2); /*getting number and storing it inside it's field*/
@@ -562,17 +594,20 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
             ans <<= SIZEOF_ARE; /*shift to the left by the number of bits that the ARE field takes*/
             ans += words[i].ARE;
             image[(*IC)].content = ans;
+            image[(*IC)].lineNum = lineNumber;
             (*IC)++;
             break;
 
         case DIRECT_ADDR:
             strcpy(image[(*IC)].labName, Cop2);
+            image[(*IC)].lineNum = lineNumber;
             (*IC)++;
             break;
 
         case STRUCT_ADDR:
             strcpy(words[i].labelName,strtok(Cop2,".")); /*copying label name to the labl name field*/
             strcpy(image[(*IC)].labName,words[i].labelName);
+            image[(*IC)].lineNum = lineNumber;
             i++; /*incrementing i to go to next cell*/
             (*IC)++;
             words[i].immediateNum = strcmp(strtok(NULL," "),"1") == 0? 1 : 2; /*getting field number*/
@@ -582,6 +617,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
             ans <<= SIZEOF_ARE; /*shift to the left by the number of bits that the ARE field takes*/
             ans += words[i].ARE;
             image[(*IC)].content = ans;
+            image[(*IC)].lineNum = lineNumber;
             (*IC)++;
             break;
 
@@ -596,6 +632,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
                 ans <<= SIZEOF_ARE; /*shift to the left by the number of bits that the ARE field takes*/
                 ans += words[i].ARE;
                 image[(*IC)].content = ans;
+                image[(*IC)].lineNum = lineNumber;
                 (*IC)++;
                 break;
             }
@@ -606,7 +643,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
 }
 
 /*takes string input, if it's ok, translates it according to the maman's instructions to the codeImage array*/
-boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
+boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '}; /*used to store the first word of the input, but also used as a copy of the input (since we want to alter it and not lose cpy)*/
     char *cpyStr;
@@ -630,7 +667,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
     operandNum = getOperandNum(thisOpcode);
 
     if(thisOpcode == NONE_OP){
-        printf("illegal function name!!!");
+        printf("error in line %d: illegal function name\n",lineNumber);
         return false;
     }
     
@@ -644,16 +681,16 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
     if(operandNum == 2){
 
         if(cpy[0] == '\n' || cpy[0] == '\0'){
-            printf("not enough operands!");
+            printf("error in line %d: not enough operands\n",lineNumber);
             return false;
         }
 
         if(strstr(cpyStr, ",,") != NULL){ /*if we have two commas in a row it's an error*/
-            printf("ERROR: too many commas between operands");
+            printf("error in line %d: too many commas between operands\n",lineNumber);
             return false;
         }
         if(strchr(cpyStr,',') == NULL){ /*if we don't have commas at all, that is also an error*/
-            printf("no comma between operands");
+            printf("error in line %d: no comma between operands\n",lineNumber);
             return false;
         }
 
@@ -670,7 +707,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
 
         /*we got too many words. (eg: <op1> , <op2>  <extraWord>)*/
         if(counter>3){
-            printf("error: too many arguments for command (extra word)");
+            printf("error in line %d: too many arguments for command (extra word)\n",lineNumber);
             return false;
         }
 
@@ -678,13 +715,13 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
         * meaning that we have a string looking like this: <op1>,<op2> */
         if(counter == 1){
             if(cpyStr[0] == ','){
-                printf("label name cannot contain a comma!");
+                printf("error in line %d: label name cannot contain a comma\n",lineNumber);
                 return false;
             }
             strcpy(op1,strtok(cpyStr,","));
             token = strtok(NULL, " ");
             if(token == NULL){
-                printf("not enough operands!");
+                printf("error in line %d: not enough operands\n",lineNumber);
                 return false;
             }
             strcpy(op2,token);
@@ -695,11 +732,11 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
         * or like this: <op1>, <op2> */
         if(counter == 2){
             if(cpyStr[0] == ','){ /*strtok will ignore this comma*/
-                printf("label name cannot contain a comma!");
+                printf("error in line %d: label name cannot contain a comma\n",lineNumber);
                 return false;
             }
             if(cpyStr[strlen(cpy)-1] == ','){ /*strtok will ignore this comma*/
-                printf("label name cannot contain a comma!");
+                printf("error in line %d: label name cannot contain a comma\n",lineNumber);
                 return false;
             }
             strcpy(op1,strtok(cpyStr,",")); /*now in op1 we have either something like this: <op1> or like this: <op1><space>*/
@@ -712,7 +749,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
             }
             token = strtok(NULL," ");
             if(skipSpace(token) == '\n' || skipSpace(token) == '\0'){
-                printf("not enough operands!");
+                printf("error in line %d: not enough operands\n",lineNumber);
                 return false;
             }
             strcpy(op2,token); /*no spaces after op1, so we only need to take the other operand from the string*/
@@ -733,7 +770,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
     }else if(operandNum == 1){
 
         if(cpyStr[0] == '\n' || cpyStr[0] == '\0'){
-            printf("not enough operands!");
+            printf("error in line %d: not enough operands\n",lineNumber);
             return false;
         }
 
@@ -747,7 +784,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
         }
 
         if(counter > 1){
-            printf("too many arguments!");
+            printf("error in line %d: too many arguments\n",lineNumber);
             return false;
         }
 
@@ -761,13 +798,13 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
         }
 
         if(counter > 1){
-            printf("too many arguments!");
+            printf("error in line %d: too many arguments\n",lineNumber);
             return false;
         }
 
         /*if the string includes commas, it is an illegal label name*/
         if(strchr(cpyStr,',') != NULL){
-            printf("illegal label name");
+            printf("error in line %d: illegal label name\n",lineNumber);
             return false;
         }
 
@@ -777,7 +814,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
     }else{
         /*we already skipped all spaces, now we either have an operand (illegal) or the end of the string (NULL)*/
         if(cpyStr != NULL){
-            printf("too many operands, command %s doesn't recieve operands",word);
+            printf("error in line %d: too many operands, command %s doesn't recieve operands\n",lineNumber,word);
             return false;
         }
     }
@@ -785,12 +822,12 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
     /*we now have the operands, and their addressing types, now we need to check the validity of addressing types with the operation*/
     if(checkAddrWithOpcode(thisOpcode,addr1,addr2)){
         /*addressing types ok, now we need to translate the line and write it to the code Image using out function*/
-        if(writeToCodeImage(thisOpcode,op1,op2,addr1,addr2,codeImage,IC)){
+        if(writeToCodeImage(thisOpcode,op1,op2,addr1,addr2,codeImage,IC,lineNumber)){
             return true;
         }
         return false;
     }else{
-        printf("addressing types not allowed!");
+        printf("error in line %d: addressing types not compatible with function\n",lineNumber);
         return false;
     }
 
@@ -798,7 +835,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC){
 
 /*writes data instruction operands to data image*/
 /*gets a string representing .data instruction's argumets, checks validity, and writes to data image if ok*/
-boolean translateData(char *input, dataImg dataImage[], int *DC){
+boolean translateData(char *input, dataImg dataImage[], int *DC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char *token;
 
@@ -806,31 +843,32 @@ boolean translateData(char *input, dataImg dataImage[], int *DC){
 
     /*no double commas*/
     if(strstr(cpy,",,") != NULL){
-        printf("multiple commas between opernads!");
+        printf("error in line %d: multiple commas between opernads\n",lineNumber);
         return false;
     }
     /*no comma at start*/
     if(cpy[0] == ','){
-        printf("number cannot contain comma!");
+        printf("error in line %d: number cannot contain comma\n", lineNumber);
         return false;
     }
     /*no comma at end*/
     if(cpy[strlen(cpy)-1] == ','){
-        printf("number cannot contain comma!");
+        printf("errorr in line %d: number cannot contain comma\n",lineNumber);
         return false;
     }
 
     token = strtok(cpy, " ,");
     while(token != NULL){ /*foe evry token between commas, we check if it's a legal number (that may include spaces)*/
         if(isNumber(token)){
-            if(atoi(token) > 1024){ /*we can store up to 1024 in 10 bits*/
-                printf("number is too big to be stored!");
+            if(atoi(token) > 511 || atoi(token) < -512){ /*we can store up to 511/ -512 in 10 bits using 2's complement*/
+                printf("error in line %d: number is too big to be stored\n",lineNumber);
                 return false;
             }else{
             dataImage[(*DC)].content = atoi(token); /*number ok, we store it*/
+            dataImage[(*DC)].lineNum = lineNumber;
             }
         }else{
-            printf("illegal number in data instruction!");
+            printf("error in line %d: illegal number in data instruction\n",lineNumber);
             return false;
         }
         token = strtok(NULL, " ,");
@@ -841,7 +879,7 @@ boolean translateData(char *input, dataImg dataImage[], int *DC){
 
 /*writes string instruction operands to data image*/
 /*gets a string representing .string instruction's argumets, checks validity, and writes to data image if ok*/
-boolean translateString(char *line, dataImg dataImage[], int *DC){
+boolean translateString(char *line, dataImg dataImage[], int *DC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     int i = 1;
     boolean endOfString = false;
@@ -849,7 +887,7 @@ boolean translateString(char *line, dataImg dataImage[], int *DC){
     strcpy(cpy,line);
 
     if(cpy[0] != '"'){ /*a string has to start with a quotation mark*/
-        printf("a string must start with a quotation mark!");
+        printf("error in line %d: a string must start with a quotation mark\n",lineNumber);
         return false;
     }
 
@@ -859,24 +897,26 @@ boolean translateString(char *line, dataImg dataImage[], int *DC){
         if(cpy[i] == '"'){
             endOfString = true;
             dataImage[(*DC)].content = 0;
+            dataImage[(*DC)].lineNum = lineNumber;
             i++;
             (*DC)++;
             break;
         }else{
             dataImage[(*DC)].content = (int)cpy[i];
+            dataImage[(*DC)].lineNum = lineNumber;
             (*DC)++;
         }
     }
 
     /*if we went thourgh the entire string, and did not close out string, that's an error*/
     if(!endOfString){
-        printf("a string must end with a quotation mark");
+        printf("error in line %d: a string must end with a quotation mark\n",lineNumber);
         return false;
     }
 
     for(;i<strlen(cpy);i++){
         if(! isspace(cpy[i]) ){
-            printf("too many arguments for .string instruction");
+            printf("error in line %d: too many arguments for .string instruction\n",lineNumber);
             return false;
         }
     }
@@ -884,7 +924,7 @@ boolean translateString(char *line, dataImg dataImage[], int *DC){
 
 /*writes struct operands to data image*/
 /*gets a string representing .struct instruction's argumets, checks validity, and writes to data image if ok*/
-boolean translateStruct(char *line, dataImg dataImage[],int *DC){
+boolean translateStruct(char *line, dataImg dataImage[],int *DC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char *token;
 
@@ -892,35 +932,36 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC){
 
     /*no double commas*/
     if(strstr(cpy,",,") != NULL){
-        printf("multiple commas between opernads!");
+        printf("error in line %d: multiple commas between opernads\n",lineNumber);
         return false;
     }
     /*there are commas in the input*/
     if(strchr(cpy,',') == NULL){
-        printf("no comma between operands!");
+        printf("error in line %d: no comma between operands\n",lineNumber);
         return false;
     }
     /*no comma at start*/
     if(cpy[0] == ','){
-        printf("number cannot contain comma!");
+        printf("error in line %d: number cannot contain comma\n",lineNumber);
         return false;
     }
     /*no comma at end*/
     if(cpy[strlen(cpy)-1] == ','){
-        printf("number cannot contain comma!");
+        printf("error in line %d: extra comma after string in .struct instruction\n",lineNumber);
         return false;
     }
 
     token = strtok(cpy," ,");
     if(token == NULL){
-        printf("no arguments for struct instruction");
+        printf("error in line %d: no arguments for struct instruction\n",lineNumber);
         return false;
     }
     if(isNumber(token)){
         dataImage[(*DC)].content = atoi(token);
+        dataImage[(*DC)].lineNum = lineNumber;
         (*DC)++;
     }else{
-        printf("number in struct instruction is illegal");
+        printf("error in line %d: number in struct instruction is illegal\n",lineNumber);
         return false;
     }
     
@@ -931,11 +972,11 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC){
         strcpy(token, skipSpace(token));
     }
 
-    translateString(token, dataImage, DC);
+    translateString(token, dataImage, DC, lineNumber);
 }
 
 /*gets a string representing a data instruction (.data/.string/.struct) ,and translates it to binary code inside of the data Image as requested in maman's instructions */
-boolean dataToWords(char *line, dataImg dataImage[], int *DC){
+boolean dataToWords(char *line, dataImg dataImage[], int *DC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '};
     char *token;
@@ -955,17 +996,17 @@ boolean dataToWords(char *line, dataImg dataImage[], int *DC){
     /*according to the type of data, we invoke the according function*/
     switch(currentInst){
         case DATA_INST:
-            if(translateData(word, dataImage, DC)){
+            if(translateData(word, dataImage, DC, lineNumber)){
                 return true;
             }
             break;
         case STRING_INST:
-            if(translateString(word, dataImage, DC)){
+            if(translateString(word, dataImage, DC, lineNumber)){
                 return true;
             }
             break;
         case STRUCT_INST:
-            if(translateStruct(word, dataImage, DC)){
+            if(translateStruct(word, dataImage, DC, lineNumber)){
                 return true;
             }
             break;

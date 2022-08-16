@@ -21,6 +21,9 @@
 /*a value for when a field is yet to be assigned*/
 #define UNASSIGNED -1
 
+/*memory is capped at 256 words (according to maman's instructions)*/
+#define MEM_CAP 256
+
 
 /*size of opcode field in code_word (in bits)*/
 #define SIZEOF_OPCODE 4
