@@ -8,8 +8,7 @@
 boolean pre_pro(FILE *,FILE *);
 char *getMacName(char *);
 boolean isComment(char *);
-boolean isMacro(macro *[],char *, int);
-boolean replaceMacro(FILE *, macro *[], char *);
-void freeList(macro **list[], int);
+boolean isMacro(macro [],char *,int);
+boolean replaceMacro(FILE *, macro [], char *);
 
 #endif

@@ -1,4 +1,7 @@
-assembler.o: assembler.c assembler.h 
+assembler: assembler.o pre_pro.o first_pass.o second_pass.o utils.o
+	gcc -ansi -Wall -pedantic assembler.o pre_pro.o first_pass.o second_pass.o utils.o -o assembler
+
+assembler.o: assembler.c assembler.h utils.h structs.h pre_pro.h first_pass.h second_pass.h
 	gcc -ansi -Wall -pedantic -c assembler.c
 	
 second_pass.o: second_pass.c second_pass.h utils.h structs.h

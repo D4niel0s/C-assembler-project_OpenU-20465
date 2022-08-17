@@ -123,4 +123,12 @@ typedef enum opcodes {
 	NONE_OP = -1
 }opcode;
 
+typedef enum extensionTypes{
+    AS_EXT,
+    AM_EXT,
+    EXT_EXT,
+    ENT_EXT,
+    OB_EXT
+}extension;
+
 #endif

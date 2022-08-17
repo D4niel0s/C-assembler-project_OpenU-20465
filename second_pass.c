@@ -45,7 +45,7 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
     /*if we have a label name in the code image, we need to translate it to it's address + ARE*/
     for(i=0;i<IC;i++){
         if(codeImage[i].labName[0] != '\0'){ /*if a field in data image is a label*/
-            if(isExtern(codeImage[i].labName, externList)){ 
+            if(isExtern(codeImage[i].labName, externList)){
                 /*if a label is extern we should save the address i which it was used, and it's translation will be the extern flag*/
                 extFlag = true;
                 currIndex = getExternIndex(codeImage[i].labName, externList); 
@@ -61,7 +61,7 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
                 return false;
             }
             
-            if(!isDefinedLabel(codeImage[i].labName, labelTab)){ /*if a label is used, but not defined, it's an error*/
+            if(!extFlag && !isDefinedLabel(codeImage[i].labName, labelTab)){ /*if a label is used, but not defined, it's an error*/
                 printf("error in line %d: label %s undefined\n", codeImage[i].lineNum, codeImage[i].labName);
                 return false;
             }
@@ -71,10 +71,13 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
                 codeImage[i].content <<= SIZEOF_ARE;
                 codeImage[i].content += R_FLAG;
             }
+
+            extFlag = false;
+            entFlag = false;
         }
     }
 
-    translateToBase32(totalLen, IC + DC + FIRST_ADDRESS);
+    translateToBase32(totalLen, IC);
     translateToBase32(dataLen, DC);
 
     /*print total code length and data length*/
@@ -84,7 +87,7 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
     for(i=0;i<IC;i++){
         /*print address*/
         translateToBase32(translatedNum, currAddress);
-        fprintf(OBfile, "%s\n", translatedNum);
+        fprintf(OBfile, "%s\t", translatedNum);
 
         /*print value*/
         translateToBase32(translatedNum, codeImage[i].content);
@@ -97,7 +100,7 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
     for(i=0;i<DC;i++){
         /*print address*/
         translateToBase32(translatedNum, currAddress);
-        fprintf(OBfile, "%s\n", translatedNum);
+        fprintf(OBfile, "%s\t", translatedNum);
 
         /*print value*/
         translateToBase32(translatedNum, dataImage[i].content);

@@ -3,66 +3,6 @@
 
 #include "first_pass.h"
 
-int main(){
-    FILE *in = fopen("infile.txt","r+");
-    label labelTab[100] = { {"\0",0,false} };
-    codeImg codeImage[256] = { {0,0,"\0"} };
-    dataImg dataImage[256] = { {0,0} };
-    extNode extList[100] = { {"\0"} };
-    entNode entList[100] = { {"\0"} };
-    int i, IC = 0, DC = 0;
-
-    if(!first_pass(in, labelTab, codeImage, dataImage, extList, entList,&IC,&DC)){
-        printf("ERROR\n");
-        return 0;
-    }
-
-    printf("IC: %d\n",IC);
-    printf("DC: %d\n",DC);
-
-    printf("label tab:\n");
-    for(i=0;i<10;i++){
-        if(labelTab[i].dataFlag){
-            labelTab[i].address += (IC+100);
-        }
-        printf("name is: %s\t", labelTab[i].name);
-        printf("address: %d\t", labelTab[i].address);
-        printf("isData: %d\n", labelTab[i].dataFlag);
-    }
-    printf("*end of label*\n\n");
-
-    printf("codeImage:\n");
-    for(i=0;i<30;i++){
-        if(codeImage[i].labName[0] != '\0'){
-            printf("lab is: %s\t", codeImage[i].labName);
-        }else{
-        printf("content is: %d\t", codeImage[i].content);
-        }
-        printf("line: %d\n", codeImage[i].lineNum);
-    }
-    printf("*end of code image*\n\n");
-
-    printf("dataImage:\n");
-    for(i=0;i<30;i++){
-        printf("content is: %d\t", dataImage[i].content);
-        printf("line: %d\n", dataImage[i].lineNum);
-    }
-    printf("*end of data image*\n\n");
-    
-    printf("externals:\n");
-    for(i=0;i<5;i++){
-        printf("name is: %s\n", extList[i].name);
-    }
-    printf("*end of externals*\n\n");
-    
-    printf("entries:\n");
-    for(i=0;i<5;i++){
-        printf("name is: %s\n", entList[i].name);
-    }
-    printf("*end of entries*\n\n");
-    return 1;
-}
-
 /*main logic of first pass:
 * translates every line (that needs to be translated) into code/data image,
 * stores lables to label table, 
@@ -88,7 +28,6 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
     /*flags to mark current line operation/ instruction*/
     opcode currentOpcode;
     instruction currentInst;
-
     while(fgets(buf,MAX_LINE,infile) != NULL){
         lineCounter++; /*got a line*/
         if(!ignore(buf)){ /*we translate a line only if it should not be ignored (not blank, not comment)*/
@@ -682,7 +621,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
                 printf("error in line %d: label name cannot contain a comma\n",lineNumber);
                 return false;
             }
-            if(cpyStr[strlen(cpy)-1] == ','){ /*strtok will ignore this comma*/
+            if(cpyStr[strlen(cpyStr)-1] == ','){ /*strtok will ignore this comma*/
                 printf("error in line %d: label name cannot contain a comma\n",lineNumber);
                 return false;
             }
@@ -701,6 +640,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
             }
             strcpy(op2,token); /*no spaces after op1, so we only need to take the other operand from the string*/
         }
+
 
         /*in this scenario, we have mover 3 times with strtok,
         * meaning that we have a string looking like this: <op1> , <op2>*/
