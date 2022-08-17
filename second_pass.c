@@ -47,6 +47,10 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
         if(codeImage[i].labName[0] != '\0'){ /*if a field in data image is a label*/
             if(isExtern(codeImage[i].labName, externList)){
                 /*if a label is extern we should save the address i which it was used, and it's translation will be the extern flag*/
+                if(getAddress(codeImage[i].labName, labelTab) != UNASSIGNED){
+                    printf("error: label %s defined as extern and initialized in source file\n",codeImage[i].labName);
+                    return false;
+                }
                 extFlag = true;
                 currIndex = getExternIndex(codeImage[i].labName, externList); 
                 externList[currIndex].useArr[ externList[currIndex].useCount ] = (i + FIRST_ADDRESS); /*code image starts at 1st address, so we add it here*/

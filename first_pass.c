@@ -56,8 +56,9 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
             
             /*skipping label name in case we got a label*/
             if(labelDef){
-                token = strtok(buf, " ");
+                token = strtok(buf, " \t");
                 token = strtok(NULL, "\0");
+            
                 if(token == NULL){
                     printf("error in line %d: emptry string after label\n",lineCounter);
                     return false;
@@ -91,8 +92,8 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                         return false;
                     }
                     strcpy(word,token); /*copying buf to word to tokenize word without changing buf*/
-                    strcpy(currentLabName, strtok(word," ")); /*get 1st word after .extern or .entry call*/
-                    token = strtok(NULL," ");
+                    strcpy(currentLabName, strtok(word," \t")); /*get 1st word after .extern or .entry call*/
+                    token = strtok(NULL," \t");
 
                     if(token != NULL){ /*if we have another token after one argument, it's an error*/
                         printf("error in line %d: too many arguments for .extern/ .entry instruction\n", lineCounter);
@@ -365,7 +366,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
     }
     if(addr2 == NONE_ADDR){
         words[i].dest_addressing = 0; /*NONE_ADDR is -1 and will be interprated as 11, but we need 0*/
-    }{
+    }else{
         words[i].dest_addressing = (unsigned int)addr2;
     }
 
@@ -422,7 +423,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
             image[(*IC)].lineNum = lineNumber;
             i++; /*incrementing i to go to next cell*/
             (*IC)++;
-            words[i].immediateNum = strcmp(strtok(NULL," "),"1") == 0? 1 : 2; /*getting field number*/
+            words[i].immediateNum = strcmp(strtok(NULL," \t"),"1") == 0? 1 : 2; /*getting field number*/
             words[i].ARE = A_FLAG; /*ARE is zero here*/
 
             ans += words[i].immediateNum;
@@ -496,7 +497,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
             image[(*IC)].lineNum = lineNumber;
             i++; /*incrementing i to go to next cell*/
             (*IC)++;
-            words[i].immediateNum = strcmp(strtok(NULL," "),"1") == 0? 1 : 2; /*getting field number*/
+            words[i].immediateNum = strcmp(strtok(NULL," \t"),"1") == 0? 1 : 2; /*getting field number*/
             words[i].ARE = A_FLAG; /*ARE is zero here*/
 
             ans += words[i].immediateNum;
@@ -557,7 +558,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         return false;
     }
     
-    cpyStr = strtok(cpy," ");
+    cpyStr = strtok(cpy," \t");
     cpyStr = strtok(NULL,"\0");
 
     if(cpyStr != NULL){ /*if this is null, we got an operation with zero operands and shouldnt copy*/
@@ -585,10 +586,10 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         * if count will be one, we have something like this: <op1>,<op2> (no spaces)
         * if count will be two, we have somthing like this: <op1>, <op2> or like this <op1> ,<op2> (one space between)
         * if count will be three, we have something like this: <op1> , <op2> (space from each side)*/
-        token = strtok(word," ");
+        token = strtok(word," \t");
         while(token != NULL){
             counter++;
-            token = strtok(NULL," ");
+            token = strtok(NULL," \t");
         }
 
         /*we got too many words. (eg: <op1> , <op2>  <extraWord>)*/
@@ -605,7 +606,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
                 return false;
             }
             strcpy(op1,strtok(cpyStr,","));
-            token = strtok(NULL, " ");
+            token = strtok(NULL, " \t");
             if(token == NULL){
                 printf("error in line %d: not enough operands\n",lineNumber);
                 return false;
@@ -633,7 +634,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
                 }
                 op1[i] = '\0';
             }
-            token = strtok(NULL," ");
+            token = strtok(NULL," \t");
             if(*(skipSpace(token)) == '\n' || *(skipSpace(token)) == '\0'){
                 printf("error in line %d: not enough operands\n",lineNumber);
                 return false;
@@ -645,9 +646,9 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         /*in this scenario, we have mover 3 times with strtok,
         * meaning that we have a string looking like this: <op1> , <op2>*/
         if(counter == 3){
-            strcpy(op1, strtok(cpyStr," ")); /*beacause we have a spac after op1*/
-            strtok(NULL," "); /*beacause we have another token (comma) if we tokenize using space*/
-            strcpy(op2,strtok(NULL," ")); /*last token is op2*/
+            strcpy(op1, strtok(cpyStr," \t")); /*beacause we have a spac after op1*/
+            strtok(NULL," \t"); /*beacause we have another token (comma) if we tokenize using space*/
+            strcpy(op2,strtok(NULL," \t")); /*last token is op2*/
         }
 
         /*we now have the two operands in the corressponding variables, now we take their addressing types/methods*/
@@ -664,10 +665,10 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         /*this counts the amount of times we can tokenize the string with spaces.
         * in other words, how many words separated by spaces do we have.
         * if this is greater than one, we have too many words or too many arguments.*/
-        token = strtok(word," ");
+        token = strtok(word," \t");
         while(token != NULL){
             counter++;
-            token = strtok(NULL," ");
+            token = strtok(NULL," \t");
         }
 
         if(counter > 1){
@@ -681,7 +682,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         token = strtok(word,",");
         while(token != NULL){
             counter++;
-            token = strtok(NULL," ");
+            token = strtok(NULL," \t");
         }
 
         if(counter > 1){
@@ -743,7 +744,7 @@ boolean translateData(char *input, dataImg dataImage[], int *DC, int lineNumber)
         return false;
     }
 
-    token = strtok(cpy, " ,");
+    token = strtok(cpy, " \t,");
     while(token != NULL){ /*foe evry token between commas, we check if it's a legal number (that may include spaces)*/
         if(isNumber(token)){
             if(atoi(token) > 511 || atoi(token) < -512){ /*we can store up to 511/ -512 in 10 bits using 2's complement*/
@@ -757,7 +758,7 @@ boolean translateData(char *input, dataImg dataImage[], int *DC, int lineNumber)
             printf("error in line %d: illegal number in data instruction\n",lineNumber);
             return false;
         }
-        token = strtok(NULL, " ,");
+        token = strtok(NULL, " \t,");
         (*DC)++;
     }
     return true;
@@ -838,7 +839,7 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC, int lineNumber)
         return false;
     }
 
-    token = strtok(cpy," ,");
+    token = strtok(cpy," ,\t");
     if(token == NULL){
         printf("error in line %d: no arguments for struct instruction\n",lineNumber);
         return false;
@@ -868,7 +869,7 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC, int lineNumber)
 boolean dataToWords(char *line, dataImg dataImage[], int *DC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '};
-
+    char *token;
     instruction currentInst;
 
     strcpy(cpy,line);
@@ -877,23 +878,23 @@ boolean dataToWords(char *line, dataImg dataImage[], int *DC, int lineNumber){
     currentInst = getInstType(word); /*getting instruction type*/
 
     /*skiping after the instruction, to the start of the value*/
-    strcpy(word, skipWord(cpy));
-    strcpy(word, skipSpace(word));
+    token = strtok(cpy, " \t");
+    token = strtok(NULL, "\0");
     
     /*according to the type of data, we invoke the according function*/
     switch(currentInst){
         case DATA_INST:
-            if(translateData(word, dataImage, DC, lineNumber)){
+            if(translateData(token, dataImage, DC, lineNumber)){
                 return true;
             }
             break;
         case STRING_INST:
-            if(translateString(word, dataImage, DC, lineNumber)){
+            if(translateString(token, dataImage, DC, lineNumber)){
                 return true;
             }
             break;
         case STRUCT_INST:
-            if(translateStruct(word, dataImage, DC, lineNumber)){
+            if(translateStruct(token, dataImage, DC, lineNumber)){
                 return true;
             }
             break;
