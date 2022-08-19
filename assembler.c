@@ -130,6 +130,7 @@ void generateFileName(char *origin, extension inputExt){
     }
 }
 
+/*closes all given files*/
 void closeFiles(FILE *ASFILE, FILE *AMFILE, FILE *OBFILE, FILE *EXTFILE, FILE *ENTFILE){
     /*close all files*/
     fclose(ASFILE);
@@ -145,6 +146,7 @@ void closeFiles(FILE *ASFILE, FILE *AMFILE, FILE *OBFILE, FILE *EXTFILE, FILE *E
     }
 }
 
+/*resets all tables and variables*/
 void resetVars(label LABELTAB[], extNode EXTLIST[], entNode ENTLIST[], codeImg CODEIMAGE[], dataImg DATAIMAGE[], int *IC, int *DC){
     int i;
     int j;

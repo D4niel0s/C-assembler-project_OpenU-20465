@@ -17,6 +17,6 @@ void generateFileName(char *origin, extension);
 /*closes all given files*/
 void closeFiles(FILE *, FILE *, FILE *, FILE *, FILE *);
 
-/*resets all variables*/
+/*resets all tables and variables*/
 void resetVars(label[] , extNode[] , entNode[] , codeImg[] , dataImg[] , int *, int *);
 #endif

@@ -545,6 +545,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
 boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
     char cpy[MAX_LINE] = {' '};
     char word[MAX_LINE] = {' '}; /*used to store the first word of the input, but also used as a copy of the input (since we want to alter it and not lose cpy)*/
+    char cmnd[4] = {' '};
     char *cpyStr;
     char *token; /*used to count how many times can we use strtok on the string (also used to save pointers)*/
 
@@ -569,9 +570,11 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         printf("error in line %d: illegal function name\n",lineNumber);
         return false;
     }
+    strcpy(cmnd, word);
+
     cpyStr = strtok(cpy," \t");
     cpyStr = strtok(NULL,"\0");
-
+    
     if(cpyStr != NULL){ /*if this is null, we got an operation with zero operands and shouldnt copy*/
         strcpy(word,cpyStr); /*copying cpy to word (to use strtok without altering origin)*/
     }
@@ -579,7 +582,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
     if(operandNum == 2){
 
         if(cpyStr == NULL || cpyStr[0] == '\n' || cpyStr[0] == '\0'){
-            printf("error in line %d: not enough operands\n",lineNumber);
+            printf("error in line %d: not enough operands, command %s recieves 2 operands\n",lineNumber, cmnd);
             return false;
         }
 
@@ -605,7 +608,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
 
         /*we got too many words. (eg: <op1> , <op2>  <extraWord>)*/
         if(counter>3){
-            printf("error in line %d: too many arguments for command (extra word)\n",lineNumber);
+            printf("error in line %d: too many arguments for command %s\n",lineNumber, cmnd);
             return false;
         }
 
@@ -619,7 +622,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
             strcpy(op1,strtok(cpyStr,","));
             token = strtok(NULL, " \t");
             if(token == NULL){
-                printf("error in line %d: not enough operands\n",lineNumber);
+                printf("error in line %d: not enough operands for command %s\n",lineNumber, cmnd);
                 return false;
             }
             strcpy(op2,token);
@@ -647,7 +650,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
             }
             token = strtok(NULL," \t");
             if(*(skipSpace(token)) == '\n' || *(skipSpace(token)) == '\0'){
-                printf("error in line %d: not enough operands\n",lineNumber);
+                printf("error in line %d: not enough operands for command %s\n",lineNumber, cmnd);
                 return false;
             }
             strcpy(op2,token); /*no spaces after op1, so we only need to take the other operand from the string*/
@@ -669,7 +672,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
     }else if(operandNum == 1){
 
         if(cpyStr == NULL || cpyStr[0] == '\n' || cpyStr[0] == '\0'){
-            printf("error in line %d: not enough operands\n",lineNumber);
+            printf("error in line %d: not enough operands, command %s recieves 1 opernad\n",lineNumber, cmnd);
             return false;
         }
 
@@ -683,7 +686,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         }
 
         if(counter > 1){
-            printf("error in line %d: too many arguments\n",lineNumber);
+            printf("error in line %d: too many operands, command %s recieves 1 opernad\n",lineNumber, cmnd);
             return false;
         }
 
@@ -697,7 +700,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         }
 
         if(counter > 1){
-            printf("error in line %d: too many arguments\n",lineNumber);
+            printf("error in line %d: too many operands, command %s recieves 1 operand\n",lineNumber, cmnd);
             return false;
         }
 
@@ -713,7 +716,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
     }else{
         /*we already skipped all spaces, now we either have an operand (illegal) or the end of the string (NULL)*/
         if(cpyStr != NULL){
-            printf("error in line %d: too many operands, command %s doesn't recieve operands\n",lineNumber,word);
+            printf("error in line %d: too many operands, command %s doesn't recieve operands\n",lineNumber, cmnd);
             return false;
         }
     }
