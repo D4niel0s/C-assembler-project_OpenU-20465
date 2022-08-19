@@ -18,18 +18,28 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
     /*flag for a line with a label definition*/
     boolean labelDef  = false;
 
+    /*flag for wether we have error in the file or not*/
+    boolean ERRFLAG = false;
+
     /*counters*/
     int labelCounter = 0;
     int externCounter = 0;
     int entryCounter = 0;
     int lineCounter = 0;
 
-
     /*flags to mark current line operation/ instruction*/
     opcode currentOpcode;
     instruction currentInst;
+
     while(fgets(buf,MAX_LINE,infile) != NULL){
         lineCounter++; /*got a line*/
+
+        /*reset variables for next line (we reset at start of loop because we might use continue)*/
+        labelDef = false;
+        strcpy(currentLabName,"\0");
+        currentInst = NONE_INST;
+        currentOpcode = NONE_OP;
+
         if(!ignore(buf)){ /*we translate a line only if it should not be ignored (not blank, not comment)*/
 
             strcpy(buf,skipSpace(buf)); /*skip spaecs at the start of every line*/
@@ -43,11 +53,13 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                     /*we do not initialize labe's name and don't increment label counter because the label might be ignored due to .extern or .entry instruction*/
                 }else{
                     printf("error in line %d: label declared twice - %s\n",lineCounter,word);
-                    return false;
+                    ERRFLAG = true;
+                    continue;
                 }
             }else if(isLabelDef(word) == 2){
                 printf("error in %d: illegal label name - %s\n",lineCounter,word);
-                return false;
+                ERRFLAG = true;
+                continue;
             }
             
             /*if a label is declared in this line, we have a line that looks like this:
@@ -61,11 +73,13 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
             
                 if(token == NULL){
                     printf("error in line %d: emptry string after label\n",lineCounter);
-                    return false;
+                    ERRFLAG = true;
+                    continue;
                 }
             }else{ /*if there is no label, the line should stay the same*/
                 token = buf;
             }
+            
             strcpy(word,get1stW(token));
             
             /*if we got a newline character at the end of input, it may mess up our parsing inside the translation functions, thus we delete it*/
@@ -89,7 +103,8 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                     /*empty line after .extern or .entry call*/
                     if(buf[0] == '\0' || buf[0] == '\n'){
                         printf("error in line %d: no arguments for .extern or .entry\n", lineCounter);
-                        return false;
+                        ERRFLAG = true;
+                        continue;
                     }
                     strcpy(word,token); /*copying buf to word to tokenize word without changing buf*/
                     strcpy(currentLabName, strtok(word," \t")); /*get 1st word after .extern or .entry call*/
@@ -97,11 +112,13 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
 
                     if(token != NULL){ /*if we have another token after one argument, it's an error*/
                         printf("error in line %d: too many arguments for .extern/ .entry instruction\n", lineCounter);
-                        return false;
+                        ERRFLAG = true;
+                        continue;
                     }
                     if(!isLegalLabel(currentLabName)){ /*if we get an illegal label name inside the instruction it's an error*/
                         printf("error in line %d: illegal label name in .extern/ .entry instruction\n", lineCounter);
-                        return false;
+                        ERRFLAG = true;
+                        continue;
                     }
                     switch(currentInst){
                         case ENTRY_INST:
@@ -123,8 +140,8 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                         labelCounter++;
                     }
                     if(!dataToWords(token, dataImage, DC, lineCounter)){ /*translate data into data image array*/
-                        printf("error, failed to write line %d to data\n",lineCounter);
-                        return false;
+                        ERRFLAG = true;
+                        continue;
                     }
                 }
                 
@@ -136,22 +153,17 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                     labelCounter++;
                 }
                 if(!CodeToWords(token, codeImage, IC, lineCounter)){ /*translate buffer to code into code image*/
-                    printf("error, failed to write line %d to code\n",lineCounter);
-                    return false;
+                    ERRFLAG = true;
+                    continue;
                 } 
             }else{
                 printf("error in line %d: %s in not a valid expression\n",lineCounter,word); /*if the first word of a line is neither an instruction or an operation, it is an error*/
-                return false;
+                ERRFLAG = true;
+                continue;
             }
-            
-            /*reset variables for next line*/
-            labelDef = false;
-            strcpy(currentLabName,"\0");
-            currentInst = NONE_INST;
-            currentOpcode = NONE_OP;
         }
     }
-    return true;
+    return !ERRFLAG; /*if we had errors, the flag is tre and we want to return true*/
 }
 
 /*returns if a given string represents a legal label declaration*/
@@ -557,7 +569,6 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
         printf("error in line %d: illegal function name\n",lineNumber);
         return false;
     }
-    
     cpyStr = strtok(cpy," \t");
     cpyStr = strtok(NULL,"\0");
 
@@ -567,7 +578,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
     /*this next part extracts the operands (if there are any), checks the validity of the line construction (commas,num of operands etc.) and gets their addressing types*/
     if(operandNum == 2){
 
-        if(cpy[0] == '\n' || cpy[0] == '\0'){
+        if(cpyStr == NULL || cpyStr[0] == '\n' || cpyStr[0] == '\0'){
             printf("error in line %d: not enough operands\n",lineNumber);
             return false;
         }
@@ -657,7 +668,7 @@ boolean CodeToWords(char *line, codeImg codeImage[], int *IC, int lineNumber){
 
     }else if(operandNum == 1){
 
-        if(cpyStr[0] == '\n' || cpyStr[0] == '\0'){
+        if(cpyStr == NULL || cpyStr[0] == '\n' || cpyStr[0] == '\0'){
             printf("error in line %d: not enough operands\n",lineNumber);
             return false;
         }

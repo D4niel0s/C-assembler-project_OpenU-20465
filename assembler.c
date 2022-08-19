@@ -29,11 +29,10 @@ int main(int argc, char **argv){
     codeImg codeImage[MEM_CAP] = { {0,0,"\0"} };
     dataImg dataImage[MEM_CAP] = { {0,0} };
 
-    int IC = 0;
-    int DC = 0;
+    int IC;
+    int DC;
 
     int i;
-    int j;
     
     for(i=1;i<argc;i++){ /*first value is executable call, we skip it*/
         strcpy(fileName, argv[i]); /*get argument from argv*/
@@ -49,12 +48,15 @@ int main(int argc, char **argv){
         /*if a file is not found, we continue compiling other files*/
         if(ASfile == NULL){
             printf("error: file %s could not be opened\n",ASfileName);
+            resetVars(labelTab, extList, entList, codeImage, dataImage, &IC, &DC);
             continue;
         }
 
         AMfile = fopen(AMfileName, "w+"); /*open after macro file for writing*/
         if(!pre_pro(ASfile, AMfile)){ /*if we have an error in the pre proccessing stage we continue to next file*/
             printf("error in pre proccessing, couldn't assemble file %s\n", ASfileName);
+            closeFiles(ASfile, AMfile, NULL, NULL, NULL);
+            resetVars(labelTab, extList, entList, codeImage, dataImage, &IC, &DC);
             continue;
         }
         
@@ -62,6 +64,8 @@ int main(int argc, char **argv){
 
         if(!first_pass(AMfile, labelTab, codeImage, dataImage, extList, entList, &IC, &DC)){ /*if we have an error in the first pass, we continue to next file*/
             printf("error in first pass, couldn't assemble file %s\n", AMfileName);
+            closeFiles(ASfile, AMfile, NULL, NULL, NULL);
+            resetVars(labelTab, extList, entList, codeImage, dataImage, &IC, &DC);
             continue;
         }
 
@@ -84,52 +88,24 @@ int main(int argc, char **argv){
             ENTfile = NULL;
         }
 
+        /*generate object file name*/
         strcpy(OBfileName, fileName);
         generateFileName(OBfileName, OB_EXT);
         OBfile = fopen(OBfileName, "w+");
 
         if(!second_pass(labelTab, codeImage, dataImage, extList, entList, IC, DC, OBfile, EXTfile, ENTfile)){
             printf("error in second pass, couldn't assemble file %s\n", AMfileName);
+            closeFiles(ASfile, AMfile, OBfile, EXTfile, ENTfile); /*close all files*/
+            resetVars(labelTab, extList, entList, codeImage, dataImage, &IC, &DC); /*reset all variables*/
             continue;
         }
 
         /*close all files*/
-        fclose(ASfile);
-        fclose(AMfile);
-        fclose(OBfile);
-        if(ENTfile != NULL){
-            fclose(ENTfile);
-        }
-        if(EXTfile != NULL){
-            fclose(EXTfile);
-        }
-
-        /*reset all arrays for next file*/
-        for(i=0;i<MEM_CAP;i++){
-            strcpy(labelTab[i].name , "\0");
-            labelTab[i].address = 0;
-            labelTab[i].dataFlag = false;
-
-            strcpy(extList[i].name, "\0");
-            for(j=0;j<extList[i].useCount;j++){
-                extList[i].useArr[j] = 0;
-            }
-            extList[i].useCount = 0;
-
-            strcpy(entList[i].name, "\0");
-
-            codeImage[i].lineNum = 0;
-            codeImage[i].content = 0;
-            strcpy(codeImage[i].labName, "\0");
-
-            dataImage[i].lineNum = 0;
-            dataImage[i].content = 0;
-        }
-
-        /*reset IC and DC*/
-        IC = 0;
-        DC = 0;
+        closeFiles(ASfile, AMfile, OBfile, EXTfile, ENTfile);
+        /*reset all variables*/
+        resetVars(labelTab, extList, entList, codeImage, dataImage, &IC, &DC);
     }
+
     return 1;
 }
 
@@ -152,6 +128,62 @@ void generateFileName(char *origin, extension inputExt){
             strcat(origin, ".ob");
             break;
     }
+}
+
+void closeFiles(FILE *ASFILE, FILE *AMFILE, FILE *OBFILE, FILE *EXTFILE, FILE *ENTFILE){
+    /*close all files*/
+    fclose(ASFILE);
+    fclose(AMFILE);
+    if(OBFILE != NULL){
+        fclose(OBFILE);
+    }
+    if(ENTFILE != NULL){
+        fclose(ENTFILE);
+    }
+    if(EXTFILE != NULL){
+        fclose(EXTFILE);
+    }
+}
+
+void resetVars(label LABELTAB[], extNode EXTLIST[], entNode ENTLIST[], codeImg CODEIMAGE[], dataImg DATAIMAGE[], int *IC, int *DC){
+    int i;
+    int j;
+
+    for(i=0;i<MEM_CAP;i++){
+        /*reset label table*/
+        if(LABELTAB != NULL){
+            strcpy(LABELTAB[i].name , "\0");
+            LABELTAB[i].address = 0;
+            LABELTAB[i].dataFlag = false;
+        }
+        /*reset externals table*/
+        if(EXTLIST != NULL){
+            strcpy(EXTLIST[i].name, "\0");
+            for(j=0;j<EXTLIST[i].useCount;j++){
+                EXTLIST[i].useArr[j] = 0;
+            }
+            EXTLIST[i].useCount = 0;
+        }
+        /*reset entries table*/
+        if(ENTLIST != NULL){
+            strcpy(ENTLIST[i].name, "\0");
+        }
+        /*reset code image*/
+        if(CODEIMAGE != NULL){
+            CODEIMAGE[i].lineNum = 0;
+            CODEIMAGE[i].content = 0;
+            strcpy(CODEIMAGE[i].labName, "\0");
+        }
+        /*reset data image*/
+        if(DATAIMAGE != NULL){
+            DATAIMAGE[i].lineNum = 0;
+            DATAIMAGE[i].content = 0;
+        }
+    }
+
+    /*reset IC and DC*/
+    *IC = 0;
+    *DC = 0;
 }
 
 #endif
