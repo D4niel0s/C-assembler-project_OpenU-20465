@@ -42,7 +42,8 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
 
         if(!ignore(buf)){ /*we translate a line only if it should not be ignored (not blank, not comment)*/
 
-            strcpy(buf,skipSpace(buf)); /*skip spaecs at the start of every line*/
+            skipSpace(buf); /*skip spaecs at the start of every line*/
+
             strcpy(word,get1stW(buf)); /*get first word*/
             
             if(isLabelDef(word) == 1){ /*return values for isLabelDef listed below (in function definition), checks if a word is a legal label declaration*/
@@ -86,7 +87,7 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
             if(token[strlen(token)-1] == '\n'){
                 token[strlen(token)-1] = '\0';
             }
-            
+    
             /*getting opcode and insturction type of current word (at least one will be none)*/
             currentOpcode = getCommandNum(word);
             currentInst = getInstType(word);
@@ -97,15 +98,16 @@ boolean first_pass(FILE *infile, label labelTab[], codeImg codeImage[],dataImg d
                         printf("warning - line %d: label definition includes .extern or .entry, label %s ignored\n",lineCounter,currentLabName);
                     }
                     /*skip to after the .extern/.entry instruction*/
-                    strcpy(token,skipWord(token));
-                    strcpy(token,skipSpace(token));
-
+                    token = strtok(token, " ");
+                    token = strtok(NULL, "\0");
+                    
                     /*empty line after .extern or .entry call*/
-                    if(buf[0] == '\0' || buf[0] == '\n'){
+                    if(token == NULL || *token == '\0' || *token == '\n'){
                         printf("error in line %d: no arguments for .extern or .entry\n", lineCounter);
                         ERRFLAG = true;
                         continue;
                     }
+                    
                     strcpy(word,token); /*copying buf to word to tokenize word without changing buf*/
                     strcpy(currentLabName, strtok(word," \t")); /*get 1st word after .extern or .entry call*/
                     token = strtok(NULL," \t");
@@ -402,7 +404,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
         /*meaning we got a number formatted like this: #<numValue>*/
         case IMMEDIATE_ADDR:
             Cop1[0] = ' '; /*replacing hashtag with space*/
-            strcpy(Cop1,skipSpace(Cop1)); /*skipping that space to leave us with only the number*/
+            skipSpace(Cop1); /*skipping that space to leave us with only the number*/
             /*we can store a value between -128 and 127 with 8 bits (2's complement)*/
             if(atoi(Cop1) > 127 || atoi(Cop1) < -128){
                 printf("error in line %d: number is too big!\n",lineNumber); /*if we got an illegal value, we exit*/
@@ -480,7 +482,7 @@ boolean writeToCodeImage(opcode thisOp,char *op1,char *op2,addressing_type addr1
     switch(addr2){
         case IMMEDIATE_ADDR:
             Cop2[0] = ' '; /*replacing hashtag with space*/
-            strcpy(Cop2,skipSpace(Cop2)); /*skipping that space to leave us with only the number*/
+            skipSpace(Cop2); /*skipping that space to leave us with only the number*/
             /*we can store a value between -128 and 127 with 8 bits (using 2's complement)*/
             if(atoi(Cop2) > 127 || atoi(Cop2) < -128){
                 printf("error in line %d: number is too big!\n",lineNumber); /*if we got an illegal value, we exit*/
@@ -831,7 +833,7 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC, int lineNumber)
     char *token;
 
     strcpy(cpy,line);
-
+    
     /*no double commas*/
     if(strstr(cpy,",,") != NULL){
         printf("error in line %d: multiple commas between opernads\n",lineNumber);
@@ -873,7 +875,6 @@ boolean translateStruct(char *line, dataImg dataImage[],int *DC, int lineNumber)
         token++;
         strcpy(token, skipSpace(token));
     }
-
     translateString(token, dataImage, DC, lineNumber);
 
     return true;
@@ -895,6 +896,11 @@ boolean dataToWords(char *line, dataImg dataImage[], int *DC, int lineNumber){
     token = strtok(cpy, " \t");
     token = strtok(NULL, "\0");
     
+    if(token == NULL || *token == '\0' || *token == '\n'){
+        printf("error in line %d: no arguments after instruction\n", lineNumber);
+        return false;
+    }
+
     /*according to the type of data, we invoke the according function*/
     switch(currentInst){
         case DATA_INST:

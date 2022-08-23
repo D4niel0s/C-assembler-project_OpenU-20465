@@ -43,23 +43,27 @@ typedef struct code_word {
 	char labelName[MAX_LABEL_NAME];
 }code_word;
 
+/*a struct for the code image array, includes line number, content, and an optional label name*/
 typedef struct codeImage{
 	int lineNum;
 	int content;
 	char labName[MAX_LABEL_NAME];
 }codeImg;
 
+/*a struct for the data image, includes line number, and content*/
 typedef struct dataImage{
 	int lineNum;
 	int content;
 }dataImg;
 
+/*a struct for the extern labels array, includes the label's name, the amount of times it was used, and an array with all the use's addresses*/
 typedef struct externNode{
 	char name[MAX_LABEL_NAME];
 	unsigned useArr[MEM_CAP];
 	int useCount;
 }extNode;
 
+/*a struct for the entry labels array, includes only the label's name*/
 typedef struct entryNode{
 	char name[MAX_LABEL_NAME];
 }entNode;

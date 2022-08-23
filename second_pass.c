@@ -17,6 +17,8 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
     boolean extFlag = false;
     boolean entFlag = false;
 
+    boolean ERRFlag = false; /*flag is turned on if we got errors*/
+
     /*for code and data separation, we must put data labels after code labels*/
     for(i=0;i<MEM_CAP;i++){
         if(labelTab[i].name[0] == '\0'){ /*if we reached the end of the table we break out*/
@@ -35,7 +37,8 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
             }
             if(!isDefinedLabel(entryList[i].name, labelTab)){
                 printf("error: label %s declared as entry and not defined\n", entryList[i].name);
-                return false;
+                ERRFlag = true;
+                continue;
             }
             translateToBase32(translatedNum, getAddress(entryList[i].name, labelTab)); /*get label's address in base 32*/
             fprintf(ENTfile, "%s\t%s\n", entryList[i].name, translatedNum); /*print label's name and address*/
@@ -45,11 +48,15 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
     /*if we have a label name in the code image, we need to translate it to it's address + ARE*/
     for(i=0;i<IC;i++){
         if(codeImage[i].labName[0] != '\0'){ /*if a field in data image is a label*/
+            extFlag = false;
+            entFlag = false;
+
             if(isExtern(codeImage[i].labName, externList)){
                 /*if a label is extern we should save the address i which it was used, and it's translation will be the extern flag*/
                 if(getAddress(codeImage[i].labName, labelTab) != UNASSIGNED){
                     printf("error: label %s defined as extern and initialized in source file\n",codeImage[i].labName);
-                    return false;
+                    ERRFlag = true;
+                    continue;
                 }
                 extFlag = true;
                 currIndex = getExternIndex(codeImage[i].labName, externList); 
@@ -62,12 +69,14 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
 
             if(extFlag && entFlag){ /*the same label cannoot be extern and entry*/
                 printf("error: label %s is defined as extern and as entry\n",codeImage[i].labName);
-                return false;
+                ERRFlag = true;
+                continue;
             }
             
             if(!extFlag && !isDefinedLabel(codeImage[i].labName, labelTab)){ /*if a label is used, but not defined, it's an error*/
                 printf("error in line %d: label %s undefined\n", codeImage[i].lineNum, codeImage[i].labName);
-                return false;
+                ERRFlag = true;
+                continue;
             }
 
             if(!extFlag){
@@ -75,12 +84,12 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
                 codeImage[i].content <<= SIZEOF_ARE;
                 codeImage[i].content += R_FLAG;
             }
-
-            extFlag = false;
-            entFlag = false;
         }
     }
 
+    if(ERRFlag){ /*if we got errors, we don't want to write to our files*/
+        return false;
+    }
     translateToBase32(totalLen, IC);
     translateToBase32(dataLen, DC);
 
@@ -129,7 +138,7 @@ boolean second_pass(label labelTab[], codeImg codeImage[],dataImg dataImage[] ,e
         }
     }
 
-    return true;
+    return !ERRFlag;
 }
 /*checks if a label is defined as extern*/
 boolean isExtern(char *label, extNode extList[]){

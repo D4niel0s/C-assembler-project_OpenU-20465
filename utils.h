@@ -4,10 +4,13 @@
 #include "definitions.h"
 #include "structs.h"
 
+/*coomand, register, and instruction numbers*/
 #define TOTAL_COMMAND_NUM 16
 #define TOTAL_REGISTER_NUM 8
 #define TOTAL_INSTRUCTION_NUM 5
 
+/*these functions are used in various files - pre proccessor, first and second pass,
+* and perform various useful operations integral for the proper work of the project*/
 boolean ignore(char *);
 char *skipSpace(char *);
 char *skipWord(char *);
@@ -20,7 +23,7 @@ instruction getInstType(char *p);
 
 #ifdef INCLUDE_ARRAYS_FLAG
 /*static data structures, used to find number of command/register/instruction*/
-static char *commandArray[16] = {
+static char *commandArray[TOTAL_COMMAND_NUM] = {
 	"mov",
 	"cmp",
 	"add",
@@ -39,7 +42,7 @@ static char *commandArray[16] = {
 	"hlt"
 };
 
-static char *registerArray[8] = {
+static char *registerArray[TOTAL_REGISTER_NUM] = {
     "r0",
     "r1",
     "r2",
@@ -50,7 +53,7 @@ static char *registerArray[8] = {
     "r7"
 };
 
-static char *instArray[5] = {
+static char *instArray[TOTAL_INSTRUCTION_NUM] = {
 	".data",
 	".string",
 	".struct",
