@@ -16,7 +16,7 @@
 * You may enter as many files as you like.
  
 * You must only type the name of the file, without it's format.
-There must exist a file with this name in the current directory.
+There must exist a file with this name in the current directory. (.as file extension)
 
 **Note:** This project compies using the GCC compiler, and is written in c90 standard, this project is meant to run on a linux environment.
 
