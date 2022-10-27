@@ -1,6 +1,7 @@
 # C assembler project - Open University semester 2022b 
 
 * This project was made as a final project to the C lab course at the open university (course No.20465).
+* This project got a final grade of 100 points.
 * This project is an assembler for an imaginary assembly language on an imaginary machine.
 
 ## Compiling and running the project
