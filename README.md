@@ -118,7 +118,7 @@ The `.ob` file is written in the following format:
 > {Address 2} {Encoding of second word}
 
 **Notes:** 
- * First address (Accorfing to the project's instructions) is always 100.
+ * First address (According to the project's instructions) is always 100.
  * The length of encoded Code and Data is the number of words that the encoding of each takes up in memory.
  * The object file contains encoding of commands first, and data afterwards. (Separation of Data and Code)
 
